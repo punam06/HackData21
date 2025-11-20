@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -16,17 +16,17 @@ datasource db {
 // Represents a user of the Food Management System
 // Stores authentication data, preferences, and profile information
 model User {
-  id                    Int                   @id @default(autoincrement())
-  email                 String                @unique @db.VarChar(255)
-  passwordHash          String                @db.VarChar(255)
-  fullName              String                @db.VarChar(255)
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  email                 String                @unique
+  passwordHash          String
+  fullName              String
   householdSize         Int                   @default(1)
   
   // JSON field for dietary preferences - stores array like ["Vegetarian", "Vegan"]
   // Critical for flexibility as user preferences may vary
   dietaryPreferences    Json                  @default("[]")
   
-  location              String?               @db.VarChar(255)
+  location              String?
   
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
@@ -44,18 +44,18 @@ model User {
 // Global seed data representing standard food items
 // Used as reference for inventory management
 model FoodItem {
-  id                    Int                   @id @default(autoincrement())
-  name                  String                @unique @db.VarChar(255)
-  category              String                @db.VarChar(100) // e.g., 'Dairy', 'Vegetables', 'Fruits', 'Grains', 'Proteins'
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String                @unique
+  category              String                // e.g., 'Dairy', 'Vegetables', 'Fruits', 'Grains', 'Proteins'
   defaultExpirationDays Int                   // e.g., Milk: 7, Rice: 365
-  averageCost           Decimal               @db.Decimal(10, 2) // Cost per unit
-  unit                  String                @db.VarChar(50) // e.g., 'kg', 'liter', 'pieces', 'grams'
+  averageCost           Decimal               // Cost per unit
+  unit                  String                // e.g., 'kg', 'liter', 'pieces', 'grams'
   
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
   
   // Relations
-  inventories           Inventory[]
+  inventories           Inventory[]           @relation("FoodItemToInventory")
   
   @@map("food_items")
 }
@@ -66,18 +66,18 @@ model FoodItem {
 // User-specific food inventory
 // Tracks what users have, quantities, and expiration information
 model Inventory {
-  id                    Int                   @id @default(autoincrement())
-  userId                Int
-  foodItemId            Int?                  // Optional: Link to global FoodItem
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  userId                String                @db.ObjectId
+  foodItemId            String?               @db.ObjectId // Optional: Link to global FoodItem
   
-  customName            String                @db.VarChar(255) // User's custom name for the item
-  quantity              Decimal               @db.Decimal(10, 2)
-  unit                  String                @db.VarChar(50)
+  customName            String                // User's custom name for the item
+  quantity              Decimal               
+  unit                  String                
   
   purchaseDate          DateTime
   expirationDate        DateTime?             // Nullable - some items don't expire
   
-  sourceImageUrl        String?               @db.Text // URL to uploaded receipt or food image for CV processing
+  sourceImageUrl        String?               // URL to uploaded receipt or food image for CV processing
   
   // JSON field for AI-extracted metadata from future CV scans
   // May contain: ripeness level, brand name, quality score, detected allergens, etc.
@@ -88,7 +88,7 @@ model Inventory {
   
   // Relations
   user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  foodItem              FoodItem?             @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  foodItem              FoodItem?             @relation("FoodItemToInventory", fields: [foodItemId], references: [id], onDelete: SetNull)
   
   // Indexes for performance
   @@index([userId])
@@ -103,14 +103,14 @@ model Inventory {
 // Training data for future AI predictions and waste analysis
 // Records all food-related actions (purchased, consumed, wasted, donated)
 model ConsumptionLog {
-  id                    Int                   @id @default(autoincrement())
-  userId                Int
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  userId                String                @db.ObjectId
   
-  foodName              String                @db.VarChar(255) // Snapshot of name at time of action
+  foodName              String                // Snapshot of name at time of action
   actionType            ActionType            // PURCHASED, CONSUMED, WASTED, DONATED
-  quantity              Decimal               @db.Decimal(10, 2)
+  quantity              Decimal               
   
-  reasonForWaste        String?               @db.Text // Optional: Why was it wasted/donated?
+  reasonForWaste        String?               // Optional: Why was it wasted/donated?
   
   logDate               DateTime              @default(now())
   
@@ -129,10 +129,10 @@ model ConsumptionLog {
 // ============================================================================
 // Static resources (tips, articles, videos) for sustainability education
 model Resource {
-  id                    Int                   @id @default(autoincrement())
-  title                 String                @db.VarChar(255)
-  content               String                @db.Text
-  categoryTag           String                @db.VarChar(100) // e.g., 'Dairy', 'Vegetables', 'Storage Tips', 'Recipes'
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  title                 String                
+  content               String                
+  categoryTag           String                // e.g., 'Dairy', 'Vegetables', 'Storage Tips', 'Recipes'
   resourceType          ResourceType          // TIP, ARTICLE, VIDEO
   
   createdAt             DateTime              @default(now())

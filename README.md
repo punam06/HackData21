@@ -7,7 +7,7 @@ This is the database initialization layer for the INNOVATEX Hackathon Food Manag
 - **Complete Prisma Schema** with 5 core models (User, FoodItem, Inventory, ConsumptionLog, Resource)
 - **Seeding Script** to populate initial data (food items, resources, test user)
 - **Transaction Utilities** for atomic database operations (consume, waste, purchase items)
-- **MySQL** as the persistent database
+- **MongoDB** as the persistent database
 
 ## 🗂️ Directory Structure
 
@@ -147,18 +147,20 @@ Edit `.env` and set your MySQL connection string:
 DATABASE_URL="mysql://root:password@localhost:3306/innovatex_food_db"
 ```
 
-**MySQL Setup** (if needed):
+**MongoDB Setup**:
 ```bash
 # macOS with Homebrew
-brew install mysql
+brew tap mongodb/brew
+brew install mongodb-community
 
-# Start MySQL
-brew services start mysql
+# Start MongoDB
+brew services start mongodb-community
 
-# Create database
-mysql -u root -p
-> CREATE DATABASE innovatex_food_db;
-> EXIT;
+# Verify MongoDB is running
+mongosh
+
+# Exit MongoDB shell
+exit
 ```
 
 ### 3. Generate Prisma Client
