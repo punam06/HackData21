@@ -20,6 +20,8 @@ database/
 │   └── transactions.js        # Transaction utilities for atomic operations
 ├── examples/
 │   └── usage.js               # Example usage of all transaction functions
+├── sql/
+│   └── core_schema.mongodb.js # MongoDB collections and aggregation pipelines
 ├── package.json               # Node.js dependencies
 ├── .env.example               # Environment variables template
 ├── .gitignore                 # Git ignore rules
@@ -34,7 +36,7 @@ database/
 Represents a user of the Food Management System.
 
 ```prisma
-id: Int                       // Auto-increment primary key
+id: String                    // MongoDB ObjectId
 email: String                 // Unique email
 passwordHash: String          // Hashed password
 fullName: String              // User's full name
@@ -42,6 +44,7 @@ householdSize: Int           // Number of people in household (default: 1)
 dietaryPreferences: Json[]   // Array of preferences: ["Vegetarian", "Gluten-Free"]
 location: String?             // Optional location
 createdAt: DateTime           // Account creation timestamp
+updatedAt: DateTime           // Last update timestamp
 ```
 
 **Relations**: One-to-Many with Inventory and ConsumptionLog
@@ -52,13 +55,14 @@ createdAt: DateTime           // Account creation timestamp
 Global reference data for common food items.
 
 ```prisma
-id: Int                       // Primary key
+id: String                    // MongoDB ObjectId
 name: String                  // Unique food item name (e.g., "Milk")
 category: String              // Category: Dairy, Vegetables, Fruits, Grains, Proteins
 defaultExpirationDays: Int   // Standard expiration (e.g., Milk: 7 days)
-averageCost: Decimal(10,2)   // Cost per unit
+averageCost: Float            // Cost per unit
 unit: String                  // Unit of measurement (kg, liter, pieces, dozen)
 createdAt: DateTime
+updatedAt: DateTime
 ```
 
 **Seeded Items**: Milk, Rice, Eggs, Spinach, Apples, Bread, Chicken Breast, Tomato
@@ -69,17 +73,18 @@ createdAt: DateTime
 Tracks user's food inventory items and quantities.
 
 ```prisma
-id: Int                       // Primary key
-userId: Int                   // Foreign key to User
-foodItemId: Int?             // Optional link to global FoodItem
+id: String                    // MongoDB ObjectId
+userId: String                // Reference to User (ObjectId)
+foodItemId: String?           // Optional link to global FoodItem (ObjectId)
 customName: String            // User's custom name (e.g., "Organic Whole Milk")
-quantity: Decimal(10,2)       // Current quantity
+quantity: Float               // Current quantity
 unit: String                  // Unit of measurement
-purchaseDate: DateTime        // When purchased
-expirationDate: DateTime?     // When expires (nullable)
+purchaseDate: DateTime?       // When purchased
+expirationDate: DateTime?     // When expires
 sourceImageUrl: String?       // URL to receipt/food image for CV
 aiMetadata: Json              // AI-extracted data (brand, ripeness, quality)
 createdAt: DateTime
+updatedAt: DateTime
 ```
 
 **Indexes**:
@@ -93,13 +98,13 @@ createdAt: DateTime
 Records all food-related actions for analytics and AI training.
 
 ```prisma
-id: Int                       // Primary key
-userId: Int                   // Foreign key to User
+id: String                    // MongoDB ObjectId
+userId: String                // Reference to User (ObjectId)
 foodName: String              // Snapshot of name at time of action
 actionType: Enum              // PURCHASED | CONSUMED | WASTED | DONATED
-quantity: Decimal(10,2)       // Amount involved
+quantity: Float               // Amount involved
 reasonForWaste: String?       // Why wasted/donated (e.g., "Expired")
-logDate: DateTime             // When action occurred (default: now)
+logDate: DateTime             // When action occurred
 ```
 
 **Indexes**:
@@ -113,12 +118,13 @@ logDate: DateTime             // When action occurred (default: now)
 Educational tips, articles, and videos for sustainability.
 
 ```prisma
-id: Int                       // Primary key
+id: String                    // MongoDB ObjectId
 title: String                 // Resource title
 content: String               // Full content
 categoryTag: String           // Category: Dairy, Vegetables, Storage Tips, etc.
 resourceType: Enum            // TIP | ARTICLE | VIDEO
 createdAt: DateTime
+updatedAt: DateTime
 ```
 
 **Seeded Resources**: 6 resources covering storage, waste reduction, and food safety
@@ -141,10 +147,10 @@ Create a `.env` file based on `.env.example`:
 cp .env.example .env
 ```
 
-Edit `.env` and set your MySQL connection string:
+Edit `.env` and set your MongoDB connection string:
 
 ```
-DATABASE_URL="mysql://root:password@localhost:3306/innovatex_food_db"
+DATABASE_URL="mongodb://localhost:27017/innovatex_food_db"
 ```
 
 **MongoDB Setup**:
@@ -217,17 +223,17 @@ const { consumeItem } = require('./lib/transactions');
 
 try {
   const result = await consumeItem(
-    1,           // inventoryId
-    1,           // userId
-    0.5,         // quantityToConsume
+    '507f1f77bcf86cd799439011',  // inventoryId (MongoDB ObjectId)
+    '507f1f77bcf86cd799439010',  // userId (MongoDB ObjectId)
+    0.5,                          // quantityToConsume
     { reasonForWaste: null }
   );
   
   console.log(result);
   // {
   //   success: true,
-  //   inventory: { id: 1, quantity: 1.0, ... },
-  //   log: { id: 1, actionType: 'CONSUMED', ... },
+  //   inventory: { id: '...', quantity: 1.0, ... },
+  //   log: { id: '...', actionType: 'CONSUMED', ... },
   //   message: "Successfully consumed 0.5 liter of Organic Whole Milk"
   // }
 } catch (error) {
@@ -255,10 +261,10 @@ const { wasteItem } = require('./lib/transactions');
 
 try {
   const result = await wasteItem(
-    1,                    // inventoryId
-    1,                    // userId
-    0.2,                  // quantityToWaste
-    'Expired'             // reason
+    '507f1f77bcf86cd799439011',  // inventoryId
+    '507f1f77bcf86cd799439010',  // userId
+    0.2,                          // quantityToWaste
+    'Expired'                     // reason
   );
   
   console.log(result.message);
@@ -279,12 +285,12 @@ const { purchaseItem } = require('./lib/transactions');
 
 try {
   const result = await purchaseItem(
-    1,  // userId
+    '507f1f77bcf86cd799439010',  // userId
     {
       customName: 'Fresh Spinach Bundle',
       quantity: 0.5,
       unit: 'kg',
-      foodItemId: 4,  // Links to FoodItem with id 4
+      foodItemId: '507f1f77bcf86cd799439020',  // ObjectId link to FoodItem
       expirationDate: new Date('2025-11-25')
     }
   );
@@ -306,12 +312,12 @@ Find inventory items expiring soon.
 const { getExpiringItems } = require('./lib/transactions');
 
 // Get items expiring within next 3 days
-const expiringItems = await getExpiringItems(1, 3);
+const expiringItems = await getExpiringItems('507f1f77bcf86cd799439010', 3);
 
 console.log(expiringItems);
 // [
 //   {
-//     id: 1,
+//     id: '...',
 //     customName: 'Organic Whole Milk',
 //     quantity: 1.5,
 //     expirationDate: 2025-11-20,
@@ -330,7 +336,7 @@ Aggregate consumption statistics for a time period.
 const { getUserConsumptionStats } = require('./lib/transactions');
 
 const stats = await getUserConsumptionStats(
-  1,
+  '507f1f77bcf86cd799439010',
   new Date('2025-11-01'),
   new Date('2025-11-30')
 );
@@ -352,12 +358,12 @@ console.log(stats);
 ## 🔍 Key Features
 
 ### ✅ AI-Ready Design
-- **JSON Columns**: `User.dietaryPreferences`, `Inventory.aiMetadata` allow flexible storage of future CV-extracted data
+- **JSON Objects**: `User.dietaryPreferences`, `Inventory.aiMetadata` allow flexible storage of future CV-extracted data
 - **Flexible schema** for future enhancement without breaking changes
 
 ### ✅ Data Integrity
-- **Foreign Keys**: Cascade deletes for user data, SetNull for optional FoodItem references
-- **Transactions**: Atomic operations with Serializable isolation level
+- **References**: ObjectId-based relationships between collections
+- **Transactions**: Atomic operations with MongoDB session support
 - **Indexes**: Optimized queries for expiration checks and user data retrieval
 
 ### ✅ Seeding Strategy
@@ -379,14 +385,14 @@ console.log(stats);
 const { purchaseItem, consumeItem, wasteItem, getExpiringItems, getUserConsumptionStats } = require('./lib/transactions');
 
 async function demonstrateWorkflow() {
-  const userId = 1;
+  const userId = '507f1f77bcf86cd799439010';
   
   // 1. User purchases milk
   const purchase = await purchaseItem(userId, {
     customName: 'Organic Whole Milk',
     quantity: 2,
     unit: 'liter',
-    foodItemId: 1, // Milk from FoodItem seed
+    foodItemId: '507f1f77bcf86cd799439020', // Milk from FoodItem seed
     expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
   });
   const inventoryId = purchase.inventory.id;
@@ -436,69 +442,34 @@ npm run db:reset
 
 ---
 
-## �️ MySQL SQL-Only Approach (Alternative to Prisma)
+## 📋 MongoDB Schema Reference
 
-If you prefer direct SQL imports instead of Prisma migrations, the **`sql/`** directory contains standalone SQL files:
+The **`sql/core_schema.mongodb.js`** file contains MongoDB collection definitions, schema validation, and sample aggregation pipelines.
 
-### Files in `sql/`
+### Collections in MongoDB
 
-| File | Purpose | Size | Run Before |
-|------|---------|------|-----------|
-| **`core_schema.sql`** | Creates database and 5 tables with relationships, indexes, views | 250+ lines | First |
-| **`seed_data.sql`** | Inserts 8 food items, 6 resources, test user, sample inventory | 150+ lines | After core_schema.sql |
-| **`smoke_test.sql`** | Validates schema, relationships, indexes, and data | 200+ lines | Anytime |
-| **`SETUP.md`** | Step-by-step guide for MySQL import and verification | Reference | Read first |
+| Collection | Purpose | Indexes |
+|-----------|---------|---------|
+| **`users`** | System users with authentication and profile | Email (unique), createdAt |
+| **`food_items`** | Master list of food items | Name (unique), category |
+| **`inventory`** | User-specific inventory items | userId, expirationDate, foodItemId, purchaseDate |
+| **`consumption_logs`** | Audit log of consumption actions | userId, logDate, actionType, userId+logDate |
+| **`resources`** | Educational resources (tips/articles) | categoryTag, resourceType |
 
-### Quick Import (SQL Only)
+### Aggregation Pipelines
 
-```bash
-# Step 1: Create database and schema
-mysql -u root -p < sql/core_schema.sql
-
-# Step 2: Seed sample data
-mysql -u root -p < sql/seed_data.sql
-
-# Step 3: Verify everything
-mysql -u root -p < sql/smoke_test.sql
-```
-
-### What `core_schema.sql` Creates
-
-- **Database**: `bubt_hackathon_db` (utf8mb4, ACID-safe)
-- **Tables**:
-  - `users` (id, email, passwordHash, fullName, householdSize, dietaryPreferences JSON, location, timestamps)
-  - `food_items` (id, name, category, defaultExpirationDays, averageCost DECIMAL, unit)
-  - `inventory` (id, userId FK, foodItemId FK, customName, quantity DECIMAL, unit, dates, sourceImageUrl, aiMetadata JSON)
-  - `consumption_logs` (id, userId FK, foodName, actionType ENUM, quantity, reasonForWaste, logDate)
-  - `resources` (id, title, content, categoryTag, resourceType ENUM)
-- **Views**:
-  - `user_consumption_summary` — Aggregated stats (purchases, consumed, wasted, donated)
-  - `expiring_inventory` — Items expiring in next 7 days
-- **Indexes**: On userId, expirationDate, logDate, actionType (optimized for queries)
-- **Constraints**: Cascade delete on users, SetNull on food_items, Enum validation
-
-### Prisma vs. SQL
-
-| Aspect | Prisma (ORM) | Direct SQL |
-|--------|-------------|-----------|
-| **Setup Time** | `npm install && npm run db:push` | `mysql -u root -p < sql/core_schema.sql` |
-| **Type Safety** | ✅ Full TypeScript support | ❌ Raw SQL strings |
-| **Migrations** | ✅ Auto-generated, tracked | ❌ Manual SQL versioning |
-| **Best For** | Node.js apps, rapid development | Shared databases, legacy systems |
-| **Flexibility** | Good (Prisma clients) | Maximum (raw SQL) |
-
-**Recommendation**: 
-- Use **Prisma** if you're building a Node.js backend (auto migrations, type safety)
-- Use **SQL files** if you have a shared database or prefer raw SQL control
+`core_schema.mongodb.js` includes sample pipelines:
+- `userConsumptionSummaryPipeline` — Aggregated consumption statistics per user
+- `expiringInventoryPipeline` — Items expiring within next 7 days
 
 ---
 
-## �📝 Notes
+## 📝 Notes
 
 - **Password Hashing**: The seed script uses a placeholder hash. In production, use `bcrypt` to hash passwords.
-- **Decimal Type**: Used for quantities and costs to avoid floating-point precision issues.
-- **JSON Fields**: Stored as LONGTEXT in MySQL 5.7+. Fully queryable with Prisma.
-- **Isolation Level**: Transactions use `Serializable` for maximum safety on critical operations.
+- **Number Precision**: MongoDB uses regular numbers. Prisma handles application-level validation for precision.
+- **JSON Fields**: Stored natively in MongoDB as objects/arrays. Fully queryable with Prisma.
+- **Transactions**: Prisma handles MongoDB transactions automatically (session management).
 
 ---
 
@@ -516,7 +487,7 @@ mysql -u root -p < sql/smoke_test.sql
 ## 📈 Next Steps (Part 2)
 
 When Computer Vision integration begins:
-1. The `Inventory.aiMetadata` JSON field will store extracted brand, ripeness, allergens, etc.
+1. The `Inventory.aiMetadata` object will store extracted brand, ripeness, allergens, etc.
 2. The `Inventory.sourceImageUrl` field will reference uploaded images
 3. ConsumptionLog data becomes training data for waste prediction models
 
@@ -526,9 +497,10 @@ When Computer Vision integration begins:
 
 For issues or questions:
 1. Check `.env` connection string
-2. Verify MySQL is running: `mysql -u root -p`
+2. Verify MongoDB is running: `mongosh`
 3. Check Prisma logs: Enable `DEBUG=*` for verbose output
 4. Review `prisma/schema.prisma` for model definitions
+5. Check `sql/core_schema.mongodb.js` for schema structure
 
 ---
 
