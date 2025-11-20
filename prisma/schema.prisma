@@ -48,7 +48,7 @@ model FoodItem {
   name                  String                @unique
   category              String                // e.g., 'Dairy', 'Vegetables', 'Fruits', 'Grains', 'Proteins'
   defaultExpirationDays Int                   // e.g., Milk: 7, Rice: 365
-  averageCost           Decimal               // Cost per unit
+  averageCost           Float                 // Cost per unit
   unit                  String                // e.g., 'kg', 'liter', 'pieces', 'grams'
   
   createdAt             DateTime              @default(now())
@@ -71,7 +71,7 @@ model Inventory {
   foodItemId            String?               @db.ObjectId // Optional: Link to global FoodItem
   
   customName            String                // User's custom name for the item
-  quantity              Decimal               
+  quantity              Float                 
   unit                  String                
   
   purchaseDate          DateTime
@@ -108,7 +108,7 @@ model ConsumptionLog {
   
   foodName              String                // Snapshot of name at time of action
   actionType            ActionType            // PURCHASED, CONSUMED, WASTED, DONATED
-  quantity              Decimal               
+  quantity              Float               
   
   reasonForWaste        String?               // Optional: Why was it wasted/donated?
   
