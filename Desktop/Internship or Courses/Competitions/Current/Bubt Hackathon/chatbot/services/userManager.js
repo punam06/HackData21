@@ -16,13 +16,20 @@ const USER_DATA_DIR = path.join(__dirname, "../data/users");
 let fileSystemAvailable = false;
 
 // Try to ensure data directory exists (may fail on Vercel, that's ok)
+// Wrap everything in try-catch to prevent crashes
 try {
-  if (!fs.existsSync(USER_DATA_DIR)) {
-    fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+  // First check if directory exists
+  if (fs.existsSync && typeof fs.existsSync === 'function') {
+    if (!fs.existsSync(USER_DATA_DIR)) {
+      if (fs.mkdirSync && typeof fs.mkdirSync === 'function') {
+        fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+      }
+    }
+    fileSystemAvailable = true;
   }
-  fileSystemAvailable = true;
 } catch (e) {
-  console.log("File system not available, using in-memory storage only");
+  console.log(`⚠️ File system initialization error: ${e.message}`);
+  console.log("Using in-memory storage only");
   fileSystemAvailable = false;
 }
 
