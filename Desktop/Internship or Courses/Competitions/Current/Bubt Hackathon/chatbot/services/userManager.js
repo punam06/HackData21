@@ -3,38 +3,52 @@
  * Manages user accounts, preferences, and conversation history persistence
  */
 
-const fs = require("fs");
-const path = require("path");
+// Safe require with error handling
+let fs, path;
+try {
+  fs = require("fs");
+  path = require("path");
+} catch (e) {
+  console.log("⚠️ Could not load fs/path modules");
+  fs = null;
+  path = null;
+}
 
 // In-memory storage for Vercel compatibility
 const inMemoryStorage = {};
 
 // Directory to store user data
-const USER_DATA_DIR = path.join(__dirname, "../data/users");
+const USER_DATA_DIR = path ? path.join(__dirname, "../data/users") : null;
 
 // Flag to track if file system is available
 let fileSystemAvailable = false;
 
-// Only initialize file system if not on serverless
-const isServerless = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+// Detect serverless environment
+const isServerless = () => {
+  return (
+    process.env.VERCEL === "1" ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.NODE_ENV === "production" ||
+    !fs ||
+    !path
+  );
+};
 
-if (!isServerless) {
+// Initialize file system ONLY in local development
+if (!isServerless()) {
   try {
-    // First check if directory exists
-    if (fs.existsSync && typeof fs.existsSync === "function") {
+    if (fs && fs.existsSync && USER_DATA_DIR) {
       if (!fs.existsSync(USER_DATA_DIR)) {
-        if (fs.mkdirSync && typeof fs.mkdirSync === "function") {
-          fs.mkdirSync(USER_DATA_DIR, { recursive: true });
-        }
+        fs.mkdirSync(USER_DATA_DIR, { recursive: true });
       }
       fileSystemAvailable = true;
     }
   } catch (e) {
-    console.log(`⚠️ File system initialization error: ${e.message}`);
+    console.log(`⚠️ File system init failed: ${e.message}`);
     fileSystemAvailable = false;
   }
 } else {
-  console.log("⚠️ Running on serverless platform - using in-memory storage only");
+  console.log("🚀 Serverless mode detected - using in-memory storage only");
   fileSystemAvailable = false;
 }
 
